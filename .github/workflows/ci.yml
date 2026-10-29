@@ -32,5 +32,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run db:generate
+      - name: Apply database schema
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+      - run: npm run db:seed
       - run: npm run test
       - run: npm run build

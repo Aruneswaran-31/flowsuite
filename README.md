@@ -41,7 +41,9 @@ npm test
 npm run build
 ```
 
-`npm test` runs the backend unit tests (including the role matrix and tenant-isolation checks) with V8 coverage. The GitHub Actions workflow runs the tests and both application builds on each push and pull request. CI configures PostgreSQL, generates the Prisma client and uses only fake CI signing keys.
+`npm test` runs the backend test suite with V8 coverage and enforces a 70% statement-coverage threshold. It mixes fast unit tests for the role matrix with HTTP integration tests that drive the real Express app against PostgreSQL: registration and sessions, tenant isolation between two organizations, Member/Manager/Admin permissions, seat and project limits, entitlements, audit history, and the signed Stripe webhook lifecycle. Integration tests apply their own schema assumptions, create uniquely named organizations and delete them afterwards, so the database must be reachable and migrated (`DATABASE_URL`). They are skipped automatically when no database is available.
+
+The GitHub Actions workflow runs the tests and both application builds on each push and pull request. CI configures PostgreSQL, applies the Prisma migration, seeds the plans and uses only fake CI signing keys.
 
 ## Environment variables
 
