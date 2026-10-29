@@ -15,6 +15,10 @@ app.disable('x-powered-by');
 app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
 app.use(helmet());
 app.use(cors({ origin: process.env.APP_URL ?? 'http://localhost:5173', credentials: true }));
+app.get('/', (req, res) => {
+  if (req.accepts(['json', 'html']) === 'html') return res.redirect(302, process.env.APP_URL ?? 'http://localhost:5173');
+  res.json({ service: 'flowsuite-api', status: 'ok', webApp: process.env.APP_URL ?? 'http://localhost:5173', health: '/api/health' });
+});
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'flowsuite-api' }));
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), (req, res) => void stripeWebhook(req, res));
 app.use(express.json({ limit: '1mb' }));
