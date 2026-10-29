@@ -8,6 +8,7 @@ export type Dashboard = {
   stats: { tasks: number; customers: number };
   taskDistribution: { name: string; value: number }[];
   recentActivity: { id: string; action: string; targetType: string; metadata: Record<string, unknown>; createdAt: string; actor?: { name: string } | null }[];
+  billing?: { configured: boolean };
 };
 export type Page<T> = { data: T[]; pagination: { page: number; pageSize: number; total: number; pages: number } };
 
