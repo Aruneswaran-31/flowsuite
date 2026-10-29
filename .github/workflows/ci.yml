@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: flowsuite
+          POSTGRES_PASSWORD: flowsuite_dev
+          POSTGRES_DB: flowsuite
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flowsuite -d flowsuite"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://flowsuite:flowsuite_dev@localhost:5432/flowsuite?schema=public
+      JWT_SECRET: ci-test-signing-key-not-for-production-0123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run test
+      - run: npm run build

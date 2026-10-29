@@ -1,0 +1,217 @@
+openapi: 3.0.3
+info:
+  title: FlowSuite Workspace API
+  version: 1.0.0
+  description: >-
+    Multi-tenant organization, projects, tasks, customers, plan and audit API. All
+    organization scope is derived from the authenticated access-token claims; tenant
+    IDs in request payloads do not grant access. Access tokens last 15 minutes.
+servers:
+  - url: http://localhost:4000/api
+    description: Local development
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      security: []
+      summary: Check API health
+      responses:
+        '200': { description: API is healthy }
+  /auth/register:
+    post:
+      security: []
+      summary: Register and create an Owner workspace on the Free plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 100 }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 10, maxLength: 128 }
+                organizationName: { type: string, minLength: 2, maxLength: 100 }
+      responses:
+        '201': { description: Account and Owner workspace created; refresh token is set in an httpOnly cookie }
+        '409': { description: Email already in use }
+  /auth/login:
+    post:
+      security: []
+      summary: Sign in using email and password
+      responses:
+        '200': { description: Access token and user context; refresh token cookie is rotated }
+        '401': { description: Invalid credentials }
+        '429': { description: Repeated failed login attempts are rate limited }
+  /auth/refresh:
+    post:
+      security: []
+      summary: Rotate refresh token and issue a short-lived access token
+      responses:
+        '200': { description: Refreshed access token and user context }
+        '401': { description: Missing, expired or revoked refresh cookie }
+  /auth/logout:
+    post:
+      security: []
+      summary: Revoke the refresh-token session
+      responses:
+        '200': { description: Session revoked and cookie cleared }
+  /auth/password/reset-request:
+    post:
+      security: []
+      summary: Request a time-limited password-reset token
+      responses:
+        '200': { description: Generic privacy-preserving confirmation; token returned only in non-production }
+  /auth/password/reset:
+    post:
+      security: []
+      summary: Set a new password using an unused reset token
+      responses:
+        '200': { description: Password updated; existing refresh sessions are revoked }
+        '400': { description: Invalid or expired token }
+  /auth/me:
+    get:
+      summary: Return the signed-in user profile and workspace context
+      responses:
+        '200': { description: Signed-in account }
+  /workspace/dashboard:
+    get:
+      summary: Workspace overview, plan limits, usage and recent activity
+      responses:
+        '200': { description: Dashboard payload }
+  /workspace/plans:
+    get:
+      summary: List active, database-configured plan tiers and entitlements
+      responses:
+        '200': { description: Available plans }
+  /workspace/members:
+    get:
+      summary: List paginated organization members and pending invites; Owner or Admin
+      parameters: [ { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' } ]
+      responses: { '200': { description: Paginated members and invitations } }
+  /workspace/members/invitations:
+    post:
+      summary: Invite a new organization member; Owner or Admin; seat limit enforced
+      responses:
+        '201': { description: Invitation created; development token returned outside production }
+        '403': { description: Seat limit reached }
+  /workspace/members/invitations/accept:
+    post:
+      security: []
+      summary: Accept a valid invite and create an account within its organization
+      responses:
+        '201': { description: Member account created and authenticated }
+        '400': { description: Invitation invalid or expired }
+  /workspace/members/{id}/role:
+    patch:
+      summary: Change organization member role; Owner only; audit entry written
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses: { '200': { description: Membership updated } }
+  /workspace/members/{id}:
+    delete:
+      summary: Remove an organization member; Owner only; Owner cannot be removed
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses: { '204': { description: Member removed }, '403': { description: Owner cannot be removed } }
+  /workspace/projects:
+    get:
+      summary: List paginated projects in this organization; Members see assigned projects only
+      parameters: [ { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' } ]
+      responses: { '200': { description: Paginated projects, customer and task data } }
+    post:
+      summary: Create a project; Owner, Admin or Manager; plan project limit enforced
+      responses: { '201': { description: Project created }, '403': { description: Project limit reached } }
+  /workspace/projects/{id}:
+    patch:
+      summary: Update or archive an organization project; Owner, Admin or Manager
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses: { '200': { description: Project updated }, '404': { description: Project is not in this workspace } }
+  /workspace/projects/{projectId}/tasks:
+    post:
+      summary: Create and assign a task to a workspace member; Owner, Admin or Manager
+      parameters: [{ $ref: '#/components/parameters/projectId' }]
+      responses: { '201': { description: Task created }, '400': { description: Assignee not a workspace member } }
+  /workspace/tasks:
+    get:
+      summary: List paginated tasks; Members only receive their assigned tasks
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/pageSize' }
+        - { name: projectId, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [TODO, IN_PROGRESS, DONE] } }
+      responses: { '200': { description: Paginated tasks } }
+  /workspace/tasks/{id}/status:
+    patch:
+      summary: Update task status; Members may update only tasks assigned to themselves
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses: { '200': { description: Task updated }, '403': { description: Member is not the task assignee } }
+  /workspace/customers:
+    get:
+      summary: Search and list paginated active workspace customers
+      parameters: [ { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: search, in: query, schema: { type: string } } ]
+      responses: { '200': { description: Paginated customers } }
+    post:
+      summary: Create a customer; Owner, Admin or Manager
+      responses: { '201': { description: Customer created } }
+  /workspace/customers/{id}:
+    patch:
+      summary: Update or archive a workspace customer; Owner, Admin or Manager
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses: { '200': { description: Customer updated }, '404': { description: Customer is not in this workspace } }
+  /workspace/usage:
+    get:
+      summary: Return current plan, seats, projects, API requests and usage limits; Owner or Admin
+      responses: { '200': { description: Usage and plan configuration } }
+  /workspace/analytics:
+    get:
+      summary: Aggregated workspace analytics; Owner or Admin; advancedAnalytics entitlement required
+      responses: { '200': { description: Analytics }, '403': { description: Upgrade required to unlock this entitlement } }
+  /workspace/audit:
+    get:
+      summary: Read paginated tenant audit events and optionally filter by action; Owner or Admin
+      parameters: [ { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: action, in: query, schema: { type: string } } ]
+      responses: { '200': { description: Paginated audit log } }
+  /workspace/billing/history:
+    get:
+      summary: List test-mode invoices for the Owner
+      responses: { '200': { description: Stripe invoice history } }
+  /workspace/billing/checkout:
+    post:
+      summary: Create a Stripe test-mode subscription checkout session for the Owner
+      responses: { '200': { description: Hosted Stripe Checkout URL }, '503': { description: Stripe test-mode configuration is missing } }
+  /workspace/billing/cancel:
+    post:
+      summary: Schedule paid subscription cancellation at period end; Owner only
+      responses: { '200': { description: Cancellation scheduled } }
+  /billing/webhook:
+    post:
+      security: []
+      summary: Verify Stripe signature and sync subscription, plan and payment lifecycle events
+      parameters: [{ name: Stripe-Signature, in: header, required: true, schema: { type: string } }]
+      responses: { '200': { description: Verified event processed }, '400': { description: Invalid signature }, '503': { description: Webhook not configured } }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    projectId:
+      name: projectId
+      in: path
+      required: true
+      schema: { type: string }
+    page:
+      name: page
+      in: query
+      schema: { type: integer, default: 1, minimum: 1 }
+    pageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, default: 20, minimum: 1, maximum: 100 }

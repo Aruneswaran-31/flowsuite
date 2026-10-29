@@ -1,0 +1,19 @@
+{
+  "name": "flowsuite",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/api", "apps/web"],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm --workspace @flowsuite/api run dev",
+    "dev:web": "npm --workspace @flowsuite/web run dev",
+    "build": "npm run build --workspace @flowsuite/api && npm run build --workspace @flowsuite/web",
+    "test": "npm run test --workspace @flowsuite/api",
+    "db:generate": "npm run db:generate --workspace @flowsuite/api",
+    "db:migrate": "npm run db:migrate --workspace @flowsuite/api",
+    "db:seed": "npm run db:seed --workspace @flowsuite/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
