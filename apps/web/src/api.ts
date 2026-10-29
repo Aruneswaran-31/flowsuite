@@ -41,14 +41,19 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
   const headers = new Headers(init.headers);
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
   if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
-  const response = await fetch(`${API}${path}`, { ...init, headers, credentials: 'include' });
+  let response: Response;
+  try {
+    response = await fetch(`${API}${path}`, { ...init, headers, credentials: 'include' });
+  } catch {
+    throw Object.assign(new Error('Cannot reach the FlowSuite API. Check that the API server is running and try again.'), { code: 'NETWORK_ERROR' });
+  }
   if (response.status === 401 && retry && !path.startsWith('/auth/')) {
     if (await refreshSession()) return request<T>(path, init, false);
     saveAccessToken(null);
     unauthorizedHandler?.();
   }
   const body = response.status === 204 ? undefined : await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(body.error?.message ?? 'Something went wrong.'), { code: body.error?.code, status: response.status });
+  if (!response.ok) throw Object.assign(new Error(body.error?.message ?? body.message ?? `Request failed with status ${response.status}.`), { code: body.error?.code, status: response.status });
   return body as T;
 }
 
